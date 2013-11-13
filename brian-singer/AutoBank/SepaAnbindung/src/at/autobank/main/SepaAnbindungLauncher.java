@@ -6,7 +6,7 @@ import java.io.IOException;
 import java.util.Scanner;
 
 /**
- * The application launcher. Configuruation management and
+ * The application launcher. Configuruation management and command line launcher.
  */
 public class SepaAnbindungLauncher {
 

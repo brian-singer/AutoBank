@@ -5,8 +5,13 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Scanner;
 
+import at.autobank.exception.AccountNotFoundException;
+import at.autobank.exception.UnexpectedFormatException;
+import at.autobank.reader.EuroLeaseReader;
+import at.autobank.reader.EuroLeaseReaderImpl;
+
 /**
- * The application launcher. Configuruation management and command line launcher.
+ * The application launcher. Configuration management and command line launcher.
  */
 public class SepaAnbindungLauncher {
 
@@ -27,18 +32,36 @@ public class SepaAnbindungLauncher {
 		}
 		FileInputStream fis = new FileInputStream(importFile);
 		Scanner scanner = new Scanner(fis);
+		// the new mutated flat file
+		StringBuilder transformedFile = new StringBuilder();
+		// old format reading helper
+		EuroLeaseReader euroLeaseReader = new EuroLeaseReaderImpl();
+		try {
+			transformedFile.append(euroLeaseReader.readHeader(scanner));
+		} catch (AccountNotFoundException e) {
+			exitAndOutputError("Could not read account from Header.");
+		}
 		try {
 			scanner.useDelimiter(":");
-			scanner.skip("^UNA.*?1030'");
 			while (scanner.hasNext()) {
 				String scannerString = scanner.next();
 				if (scannerString.trim().isEmpty()) {
+					transformedFile.append(scannerString + ":");
 					continue;
 				}
-				System.out.println(scannerString);
+				String result = euroLeaseReader
+						.parseRequestString(scannerString);
+				if (result == null) {
+					continue;
+				}
+				transformedFile.append(result + ":");
+				// Check FII -> close with PRC
+				// System.out.println(scannerString);
 			}
-			fis.close();
-			scanner.close();
+			System.out.println(transformedFile);
+		} catch (UnexpectedFormatException e) {
+			// TODO handle exception
+			e.printStackTrace();
 		} finally {
 			fis.close();
 			scanner.close();
@@ -49,6 +72,7 @@ public class SepaAnbindungLauncher {
 	 * Helper method to print and exit.
 	 * 
 	 * @param error
+	 *            the error to print
 	 */
 	private static void exitAndOutputError(String error) {
 		System.out.println(error);

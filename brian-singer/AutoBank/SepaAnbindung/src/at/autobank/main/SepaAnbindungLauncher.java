@@ -1,7 +1,9 @@
 package at.autobank.main;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Scanner;
 
@@ -41,6 +43,7 @@ public class SepaAnbindungLauncher {
 		} catch (AccountNotFoundException e) {
 			exitAndOutputError("Could not read account from Header.");
 		}
+		BufferedWriter fileOutput = null;
 		try {
 			scanner.useDelimiter(":");
 			while (scanner.hasNext()) {
@@ -59,12 +62,24 @@ public class SepaAnbindungLauncher {
 				// System.out.println(scannerString);
 			}
 			System.out.println(transformedFile);
+			File output = new File(args[1]);
+			if (!output.canWrite()) {
+				// cancel transaction and must be rerun
+				System.out.println("could not write: " + output.getPath());
+			} else {
+				fileOutput = new BufferedWriter(new FileWriter(output.getPath() + "/" + "testOutput.l"));
+				fileOutput.write(transformedFile.toString());
+				fileOutput.close();
+			}
 		} catch (UnexpectedFormatException e) {
 			// TODO handle exception
 			e.printStackTrace();
 		} finally {
 			fis.close();
 			scanner.close();
+			if (fileOutput != null) {
+				fileOutput.close();
+			}
 		}
 	}
 

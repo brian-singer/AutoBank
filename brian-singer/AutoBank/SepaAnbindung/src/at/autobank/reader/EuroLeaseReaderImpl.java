@@ -1,5 +1,6 @@
 package at.autobank.reader;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
@@ -7,6 +8,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import at.autobank.bean.RedmineMandate;
+import at.autobank.dao.MySqlDatabaseSingleTon;
+import at.autobank.dto.Mandate;
+import at.autobank.dto.SepaTransformationTransaction;
 import at.autobank.exception.AccountNotFoundException;
 import at.autobank.exception.UnexpectedFormatException;
 
@@ -18,9 +22,9 @@ import at.autobank.exception.UnexpectedFormatException;
  */
 public class EuroLeaseReaderImpl implements EuroLeaseReader {
 
-	/**
-	 * temporary holder for the mandates until database connection is available.
-	 */
+	/** the database controller. */
+	MySqlDatabaseSingleTon database;
+	/** temporary holder for the mandates until database connection is available. */
 	private List<RedmineMandate> mandates;
 	/** flag indicating a new request is being parsed. */
 	private boolean newRequest = true;
@@ -45,7 +49,9 @@ public class EuroLeaseReaderImpl implements EuroLeaseReader {
 	/** the contact for the payment (FII). */
 	private String contact;
 	/** the current mandate being processed. */
-	private RedmineMandate mandate = null;
+	private Mandate mandate = null;
+	/** a flag to indicate if a mandate is recurring. */
+	private boolean isMandateRecurring;
 	/** Preserve the old (FTX+PMD). */
 	private boolean ftxPmd = false;
 	/** the booking amount. */
@@ -59,7 +65,7 @@ public class EuroLeaseReaderImpl implements EuroLeaseReader {
 	 */
 	private boolean isEndOfField = true;
 	/** Accounts not found. */
-	private List<RedmineMandate> missingAccounts = null;
+	private List<Mandate> missingAccounts = null;
 
 	/**
 	 * Default constructor. Note: temporary constructor until DB connection.
@@ -67,8 +73,18 @@ public class EuroLeaseReaderImpl implements EuroLeaseReader {
 	 * @param mandateList
 	 *            the list of mandates in the CSV file
 	 */
+	@Deprecated
 	public EuroLeaseReaderImpl(List<RedmineMandate> mandateList) {
 		mandates = mandateList;
+	}
+
+	/**
+	 * The new default constructor.
+	 * 
+	 * @param databaseToSet
+	 */
+	public EuroLeaseReaderImpl(MySqlDatabaseSingleTon databaseToSet) {
+		database = databaseToSet;
 	}
 
 	/**
@@ -119,7 +135,7 @@ public class EuroLeaseReaderImpl implements EuroLeaseReader {
 	/**
 	 * {@inheritDoc}
 	 */
-	public List<RedmineMandate> getMissingAccounts() {
+	public List<Mandate> getMissingAccounts() {
 		return missingAccounts;
 	}
 
@@ -129,9 +145,9 @@ public class EuroLeaseReaderImpl implements EuroLeaseReader {
 	public String formatCSVAccountsNotFoundList() {
 		String header = "KontoNummer;Bankleitzahl";
 		StringBuilder csv = new StringBuilder(header);
-		for (RedmineMandate account : missingAccounts) {
+		for (Mandate account : missingAccounts) {
 			csv.append("\n");
-			csv.append(account.getKontoNummber());
+			csv.append(account.getKontonummer());
 			csv.append(";");
 			csv.append(account.getBankleitzahl());
 		}
@@ -149,6 +165,7 @@ public class EuroLeaseReaderImpl implements EuroLeaseReader {
 		blzFound = false;
 		contactSet = false;
 		ftxPmd = false;
+		isMandateRecurring = false;
 		isEndOfField = true;
 	}
 
@@ -156,7 +173,7 @@ public class EuroLeaseReaderImpl implements EuroLeaseReader {
 	 * {@inheritDoc}
 	 */
 	public String parseRequestString(final String requestString)
-			throws UnexpectedFormatException, AccountNotFoundException {
+			throws UnexpectedFormatException, AccountNotFoundException, SQLException {
 		// System.out.println("DEBUG----" + requestString);
 		if (newRequest) {
 			if (!requestString.contains("SEQ")) {
@@ -209,16 +226,16 @@ public class EuroLeaseReaderImpl implements EuroLeaseReader {
 			} else if (blzFound) {
 				finished3194 = true;
 				blz = Integer.valueOf(requestString);
-				mandate = scanForMandate();
+				mandate = requestMandate();
 				if (mandate == null) {
 					System.out.println("KN: " + accountNumber + " BLZ:" + blz
 							+ " not found.");
 					if (missingAccounts == null) {
-						missingAccounts = new ArrayList<RedmineMandate>();
+						missingAccounts = new ArrayList<Mandate>();
 					}
-					mandate = new RedmineMandate();
-					mandate.setKontoNummber(accountNumber);
-					mandate.setBankleitzahl(blz);
+					mandate = new Mandate();
+					mandate.setKontonummer(accountNumber.toString());;
+					mandate.setBankleitzahl(blz.toString());
 					if (!missingAccounts.contains(mandate)) {
 						missingAccounts.add(mandate);
 					}
@@ -254,7 +271,7 @@ public class EuroLeaseReaderImpl implements EuroLeaseReader {
 	/**
 	 * {@inheritDoc}
 	 */
-	public RedmineMandate getMandate() {
+	public Mandate getMandate() {
 		return mandate;
 	}
 
@@ -270,6 +287,14 @@ public class EuroLeaseReaderImpl implements EuroLeaseReader {
 	 */
 	public String getBuchungstext() {
 		return buchungstext.toString();
+	}
+
+	public Long getKontonummer() {
+		return accountNumber; 
+	}
+
+	public Integer getBankleitzahl() {
+		return blz;
 	}
 
 	/**
@@ -357,11 +382,13 @@ public class EuroLeaseReaderImpl implements EuroLeaseReader {
 			fieldTransformer.append(":CI/");
 			fieldTransformer.append(mandate.getCreditorId());
 			fieldTransformer.append(":SIGN/");
-			fieldTransformer.append(mandate.getMandateDate());
+			fieldTransformer.append(mandate.getMandatsDatum());
 			fieldTransformer.append("/SEQT/");
-			System.out
-					.println("Seq-Type des Einzugs ist noch nicht aktualisiert. einfuehren: FRST");
-			fieldTransformer.append("FRST'");
+			if (isMandateRecurring) {
+				fieldTransformer.append("RCUR");
+			} else {
+				fieldTransformer.append("FRST'");
+			}
 			if (sequence) {
 				fieldTransformer.append("SEQ++" + this.sequence);
 			} else {
@@ -383,6 +410,7 @@ public class EuroLeaseReaderImpl implements EuroLeaseReader {
 	 *            the BLZ
 	 * @return the mandate from the Redmine system
 	 */
+	@Deprecated
 	private RedmineMandate scanForMandate() {
 		for (RedmineMandate mandate : mandates) {
 			if (mandate.getKontoNummber().equals(accountNumber)
@@ -391,6 +419,25 @@ public class EuroLeaseReaderImpl implements EuroLeaseReader {
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * Find a valid mandate for the current sequence.
+	 * 
+	 * @return the mandate or null if no valid mandate was found
+	 * @throws SQLException
+	 */
+	private Mandate requestMandate() throws SQLException {
+		Mandate mandate = null;
+		SepaTransformationTransaction transaction = database.getLastMandate(accountNumber, blz);
+		if (transaction != null) {
+			mandate = database.getValidMandate(transaction.getMandateId());
+			if (mandate != null) {
+				isMandateRecurring = true;
+				return mandate;
+			}
+		}
+		return database.selectMandate(accountNumber, blz);
 	}
 
 }

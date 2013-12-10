@@ -20,10 +20,5 @@ public class DatabaseConnectionTest {
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
-
-//		TableUtils.dropTable(connectionSource,
-//		SepaTransformationTransaction.class, true);
-//		TableUtils.createTable(connectionSource,
-//		SepaTransformationTransaction.class);
 	}
 }

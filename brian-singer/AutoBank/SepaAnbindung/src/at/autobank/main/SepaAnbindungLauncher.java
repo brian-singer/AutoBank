@@ -7,19 +7,16 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Calendar;
-import java.util.List;
 import java.util.Scanner;
 
-import com.j256.ormlite.logger.LocalLog;
-
-import at.autobank.bean.RedmineMandate;
 import at.autobank.dao.MySqlDatabaseSingleTon;
 import at.autobank.dto.SepaTransformationTransaction;
 import at.autobank.exception.AccountNotFoundException;
 import at.autobank.exception.UnexpectedFormatException;
 import at.autobank.reader.EuroLeaseReader;
 import at.autobank.reader.EuroLeaseReaderImpl;
-import at.autobank.reader.MandateDataCSVReader;
+
+import com.j256.ormlite.logger.LocalLog;
 
 /**
  * The application launcher. Configuration management and command line launcher.
@@ -34,18 +31,10 @@ public class SepaAnbindungLauncher {
 	 * @throws IOException
 	 */
 	public static void main(String[] args) throws IOException {
+		// optional logging levels for db: debug, info, error
 		System.setProperty(LocalLog.LOCAL_LOG_LEVEL_PROPERTY, "info");
 		if (args.length == 0) {
 			exitAndOutputError("Missing input file argument.");
-		}
-		File mandateData = new File(args[2]);
-		if (!mandateData.exists()) {
-			exitAndOutputError("Missing mandate CSV file.");
-		}
-		MandateDataCSVReader csvReader = new MandateDataCSVReader(mandateData);
-		List<RedmineMandate> mandateList = csvReader.getMandateList();
-		if (mandateList.isEmpty()) {
-			exitAndOutputError("Mandate list is empty.");
 		}
 		File importFile = new File(args[0]);
 		if (!importFile.exists()) {
@@ -53,21 +42,20 @@ public class SepaAnbindungLauncher {
 		}
 		FileInputStream fis = new FileInputStream(importFile);
 		Scanner scanner = new Scanner(fis);
+		MySqlDatabaseSingleTon database = null;
+		try {
+			database = new MySqlDatabaseSingleTon(args[2], args[3], args[4]);
+		} catch (SQLException e) {
+			e.printStackTrace();
+			exitAndOutputError("Could not initialise database.");
+		}
+		EuroLeaseReader euroLeaseReader = new EuroLeaseReaderImpl(database);
 		// the new mutated flat file
 		StringBuilder transformedFile = new StringBuilder();
-		// old format reading helper
-		EuroLeaseReader euroLeaseReader = new EuroLeaseReaderImpl(mandateList);
 		try {
 			transformedFile.append(euroLeaseReader.readHeader(scanner));
 		} catch (AccountNotFoundException e) {
 			exitAndOutputError("Could not read account from Header.");
-		}
-		MySqlDatabaseSingleTon database = null;
-		try {
-			database = new MySqlDatabaseSingleTon(args[3], args[4], args[5]);
-		} catch (SQLException e) {
-			e.printStackTrace();
-			exitAndOutputError("Could not initialise database.");
 		}
 		BufferedWriter fileOutput = null;
 		try {
@@ -93,7 +81,9 @@ public class SepaAnbindungLauncher {
 					transformedFile.append(result);
 				}
 				if (euroLeaseReader.isSequenceCompleted()) {
-					writeSequenceTransaction(euroLeaseReader, database);
+					if (euroLeaseReader.getMissingAccounts() == null) {
+						writeSequenceTransaction(euroLeaseReader, database);
+					}
 				}
 			}
 			System.out.println("Finished parsing sequences.");
@@ -141,9 +131,18 @@ public class SepaAnbindungLauncher {
 		}
 	}
 
+	/**
+	 * Write the sequence details to the tracking database.
+	 * 
+	 * @param reader
+	 * @param database
+	 * @throws SQLException
+	 */
 	private static void writeSequenceTransaction(EuroLeaseReader reader, MySqlDatabaseSingleTon database) throws SQLException {
 		SepaTransformationTransaction transaction = new SepaTransformationTransaction();
 		transaction.setMandateId(reader.getMandate().getMandateId());
+		transaction.setKontonummer(reader.getKontonummer());
+		transaction.setBankleitzahl(reader.getBankleitzahl());
 		transaction.setBuchungstext(reader.getBuchungstext());
 		transaction.setBuchungsbetrag(reader.getBuchungsbetrag());
 		Calendar calendar = Calendar.getInstance();

@@ -5,27 +5,31 @@ import java.util.Date;
 import com.j256.ormlite.field.DatabaseField;
 import com.j256.ormlite.table.DatabaseTable;
 
-@DatabaseTable(tableName = "eurolease_sepa_transaction")
+@DatabaseTable(tableName = "EuroleaseSepaTransaction")
 public class SepaTransformationTransaction {
 
-	@DatabaseField(generatedId = true, columnName = "transaction_id")
+	@DatabaseField(generatedId = true, columnName = "Tracking-ID")
 	private int id;
 
-//	@DatabaseField(columnName = "MANDATEID", canBeNull = false, foreign = true)
-//	private RedmineMandate redmineMandate;
-	@DatabaseField(columnName = "mandate_id")
+	@DatabaseField(columnName = "Mandats-ID")
 	private String mandateId;
 
-	@DatabaseField(columnName = "durchfuehrungsdatum")
+	@DatabaseField(columnName = "Kontonummer")
+	private Long kontonummer;
+
+	@DatabaseField(columnName = "Bankleitzahl")
+	private Integer bankleitzahl; 
+
+	@DatabaseField(columnName = "Durchfuehrungsdatum")
 	private Date durchfuehrungsdatum;
 
-	@DatabaseField(columnName = "buchungstext")
+	@DatabaseField(columnName = "Buchungstext")
 	private String buchungstext;
 
-	@DatabaseField(columnName = "buchungsbetrag")
+	@DatabaseField(columnName = "Buchungsbetrag")
 	private String buchungsbetrag;
 
-	@DatabaseField(columnName = "valutadatum")
+	@DatabaseField(columnName = "Valutadatum")
 	private Date valutadatum;
 
 	public int getId() {
@@ -38,6 +42,22 @@ public class SepaTransformationTransaction {
 
 	public void setMandateId(String mandateId) {
 		this.mandateId = mandateId;
+	}
+
+	public Long getKontonummer() {
+		return kontonummer;
+	}
+
+	public void setKontonummer(Long kontonummer) {
+		this.kontonummer = kontonummer;
+	}
+
+	public Integer getBankleitzahl() {
+		return bankleitzahl;
+	}
+
+	public void setBankleitzahl(Integer bankleitzahl) {
+		this.bankleitzahl = bankleitzahl;
 	}
 
 	public Date getDurchfuehrungsdatum() {

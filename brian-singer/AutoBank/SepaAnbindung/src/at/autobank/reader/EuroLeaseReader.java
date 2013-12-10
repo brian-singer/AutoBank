@@ -1,9 +1,10 @@
 package at.autobank.reader;
 
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Scanner;
 
-import at.autobank.bean.RedmineMandate;
+import at.autobank.dto.Mandate;
 import at.autobank.exception.AccountNotFoundException;
 import at.autobank.exception.UnexpectedFormatException;
 
@@ -34,9 +35,11 @@ public interface EuroLeaseReader {
 	 * @return the transformed, same, or <code>null</code> <code>String</code>
 	 *         is returned
 	 * @throws UnexpectedFormatException
+	 * @throws AccountNotFoundException
+	 * @throws SQLException 
 	 */
 	public String parseRequestString(String requestString)
-			throws UnexpectedFormatException, AccountNotFoundException;
+			throws UnexpectedFormatException, AccountNotFoundException, SQLException ;
 
 	/**
 	 * A helper method to indicate if only a partial field is returned by the
@@ -58,7 +61,7 @@ public interface EuroLeaseReader {
 	 * 
 	 * @return null if all accounts were found or the list of missing accounts
 	 */
-	public List<RedmineMandate> getMissingAccounts();
+	public List<Mandate> getMissingAccounts();
 
 	/**
 	 * Helper method to format the accounts not found to a CSV file.
@@ -68,9 +71,9 @@ public interface EuroLeaseReader {
 	public String formatCSVAccountsNotFoundList();
 
 	/**
-	 * @return the mandate for the current sequnce.
+	 * @return the mandate for the current sequence.
 	 */
-	public RedmineMandate getMandate();
+	public Mandate getMandate();
 
 	/**
 	 * @return the FTX+PMD entry
@@ -81,4 +84,7 @@ public interface EuroLeaseReader {
 	 * @return the sequence charged amount
 	 */
 	public String getBuchungsbetrag();
+
+	public Long getKontonummer();
+	public Integer getBankleitzahl();
 }

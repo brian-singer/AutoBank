@@ -385,7 +385,7 @@ public class EuroLeaseReaderImpl implements EuroLeaseReader {
 			fieldTransformer.append(mandate.getMandatsDatum());
 			fieldTransformer.append("/SEQT/");
 			if (isMandateRecurring) {
-				fieldTransformer.append("RCUR");
+				fieldTransformer.append("RCUR'");
 			} else {
 				fieldTransformer.append("FRST'");
 			}

@@ -90,6 +90,7 @@ public class SepaAnbindungLauncher {
 			// System.out.println("DEBUG:" + transformedFile.toString());
 			if (euroLeaseReader.getMissingAccounts() == null) {
 				File output = new File(args[1]);
+				database.commitChanges();
 				if (!output.canWrite()) {
 					// cancel transaction and must be rerun
 					System.out.println("Could not write: " + output.getPath());

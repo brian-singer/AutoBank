@@ -116,6 +116,7 @@ public class MySqlDatabaseSingleTon {
 				username, password);
 		sepaDao = DaoManager.createDao(connectionSource,
 				SepaTransformationTransaction.class);
+		sepaDao.setAutoCommit(connectionSource.getReadOnlyConnection(), false);
 		mandateDao = DaoManager.createDao(connectionSource, Mandate.class);
 		if (!sepaDao.isTableExists()) {
 			TableUtils.createTable(connectionSource,
@@ -130,6 +131,10 @@ public class MySqlDatabaseSingleTon {
 	 */
 	public void closeDbConnection() throws SQLException {
 		connectionSource.close();
+	}
+	
+	public void commitChanges() throws SQLException {
+		sepaDao.commit(connectionSource.getReadWriteConnection());
 	}
 
 	/**

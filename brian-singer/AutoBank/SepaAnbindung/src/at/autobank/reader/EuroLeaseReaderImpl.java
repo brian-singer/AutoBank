@@ -11,6 +11,7 @@ import at.autobank.bean.RedmineMandate;
 import at.autobank.dao.MySqlDatabaseSingleTon;
 import at.autobank.dto.Mandate;
 import at.autobank.dto.SepaTransformationTransaction;
+import at.autobank.dto.IbanMapping;
 import at.autobank.exception.AccountNotFoundException;
 import at.autobank.exception.UnexpectedFormatException;
 
@@ -58,6 +59,12 @@ public class EuroLeaseReaderImpl implements EuroLeaseReader {
 	private String buchungsbetrag;
 	/** the buchungstext. */
 	private StringBuilder buchungstext;
+	
+	private IbanMapping ibans = null;
+	
+	private String currentIBAN;
+	
+	private String currentCreditor;
 
 	/**
 	 * a flag indicating if the field ends or its partially returned (E.g.
@@ -102,6 +109,20 @@ public class EuroLeaseReaderImpl implements EuroLeaseReader {
 			if (matcher.find()) {
 				value = matcher.group();
 				accountNumber = Long.valueOf(value);
+				try {
+					ibans = requestIBAN();
+					if (ibans == null) {
+						System.out.println("Cannot find IBAN/Creditor");
+						System.exit(0);						
+					}
+					else {
+						currentIBAN = ibans.getIban();
+						currentCreditor = ibans.getCreditorId();
+					}
+				} catch (SQLException e) {
+					System.out.println("Cannot find IBAN/Creditor");
+					System.exit(0);
+				}
 			} else {
 				throw new AccountNotFoundException();
 			}
@@ -111,9 +132,9 @@ public class EuroLeaseReaderImpl implements EuroLeaseReader {
 		}
 		// add below code to helper function and lookup account to replace
 		line = line.replaceFirst("(\\+)(MR)(\\+)(\\d)*(\\+)",
-				"+MR+AT591967500301001400+");
+				"+MR+"+ currentIBAN +"+");
 		line = line.replaceFirst("(\\+)(OR)(\\+)(\\d)*(\\:)",
-				"+OR+AT591967500301001400:");
+				"+OR+" + currentIBAN + ":");
 		System.out.println("Finished parsing header");
 		return line;
 	}
@@ -431,7 +452,7 @@ public class EuroLeaseReaderImpl implements EuroLeaseReader {
 		Mandate mandate = null;
 		SepaTransformationTransaction transaction = database.getLastMandate(accountNumber, blz);
 		if (transaction != null) {
-			mandate = database.getValidMandate(transaction.getMandateId());
+			mandate = database.getValidMandate(transaction.getMandateId(), currentCreditor);
 			if (mandate != null) {
 				isMandateRecurring = true;
 				return mandate;
@@ -439,5 +460,13 @@ public class EuroLeaseReaderImpl implements EuroLeaseReader {
 		}
 		return database.selectMandate(accountNumber, blz);
 	}
-
+	
+	private IbanMapping requestIBAN() throws SQLException {
+		IbanMapping ibans = null;
+		ibans = database.getIBANs(accountNumber);
+		if (ibans != null) {
+			return ibans; 
+		}
+		return null;
+	}
 }

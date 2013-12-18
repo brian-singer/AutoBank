@@ -8,6 +8,7 @@ import java.util.List;
 
 import at.autobank.dto.Mandate;
 import at.autobank.dto.SepaTransformationTransaction;
+import at.autobank.dto.IbanMapping;
 
 import com.j256.ormlite.dao.Dao;
 import com.j256.ormlite.dao.DaoManager;
@@ -24,6 +25,8 @@ public class MySqlDatabaseSingleTon {
 	private Dao<SepaTransformationTransaction, Integer> sepaDao;
 	/** the mandate dao. */
 	private Dao<Mandate, String> mandateDao;
+	
+	private Dao<IbanMapping, String> ibanDao;
 
 	/** the mandate date formatter. */
 	private SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd");
@@ -91,16 +94,25 @@ public class MySqlDatabaseSingleTon {
 		return null;
 	}
 
-	public Mandate getValidMandate(String mandateId) throws SQLException {
+	public Mandate getValidMandate(String mandateId, String currentCreditor) throws SQLException {
 		List<Mandate> mandates = mandateDao.queryBuilder().where()
 				.eq("Mandats-ID", mandateId).and()
+				.eq("Creditor-ID", currentCreditor).and()
 				.eq("Status", "Gültig").query();
 		if (mandates.size() >= 1) {
 			return mandates.get(0);
 		}
 		return null;
 	}
-
+	
+	public IbanMapping getIBANs(Long kontonummer) throws SQLException {
+		List<IbanMapping> ibans = ibanDao.queryBuilder().where()
+				.eq("Kontonummer", kontonummer).query();
+		if (ibans.size() >= 1) {
+			return ibans.get(0);
+		}
+		return null;
+	}
 	/**
 	 * Initialise the db.
 	 * 
@@ -117,6 +129,7 @@ public class MySqlDatabaseSingleTon {
 		sepaDao = DaoManager.createDao(connectionSource,
 				SepaTransformationTransaction.class);
 		sepaDao.setAutoCommit(connectionSource.getReadOnlyConnection(), false);
+		ibanDao = DaoManager.createDao(connectionSource, IbanMapping.class);
 		mandateDao = DaoManager.createDao(connectionSource, Mandate.class);
 		if (!sepaDao.isTableExists()) {
 			TableUtils.createTable(connectionSource,

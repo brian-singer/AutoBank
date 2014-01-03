@@ -207,9 +207,9 @@ public class EuroLeaseReaderImpl implements EuroLeaseReader {
 		}
 		if (requestString.contains("SEQ")) {
 			sequenceCompleted = true;
-			newSequence();
 			System.out.println("Inserting Feld 4440.");
 			String seqenceString = insertFeld4440(requestString, true);
+			newSequence();
 			System.out.println("Started parsing a new sequence#" + sequence);
 			return seqenceString;
 		}
